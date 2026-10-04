@@ -226,7 +226,9 @@ Regras:
   sem avisos.
 - **Não testado de ponta a ponta:** gravação de receita com usuário logado
   (`POST /finance/revenues` exige token real) — validar no primeiro uso.
-- O projeto **ainda não é um repositório git**.
+- Repositório git local (branch `main`), **ainda sem remoto**: ao criar o
+  repositório no GitHub, rode `git remote add origin <url>` e
+  `git push -u origin main`.
 
 ### Como retomar
 1. Ligar a API: `scripts/start-api.ps1` (confirme `GET /api/v1/health` = 200).
