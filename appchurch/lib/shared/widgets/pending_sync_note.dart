@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 
-/// Aviso de que totais e saldos exibidos ainda não incluem os lançamentos
-/// feitos offline (eles são calculados pela API depois da sincronização).
+/// Aviso de que totais e saldos exibidos já incluem lançamentos feitos
+/// offline, ainda não confirmados pela API (valores provisórios).
 class PendingSyncNote extends StatelessWidget {
   const PendingSyncNote({super.key, required this.api, this.compact = false});
 
@@ -21,8 +21,9 @@ class PendingSyncNote extends StatelessWidget {
         if (count == 0) return const SizedBox.shrink();
         final colors = Theme.of(context).colorScheme;
         final text =
-            'Valores sem $count lançamento(s) aguardando sincronização. '
-            'Eles entram nos totais quando a conexão com a API voltar.';
+            'Inclui $count lançamento(s) ainda não sincronizado(s): valores '
+            'provisórios. Os repasses são recalculados quando a conexão com '
+            'a API voltar.';
         if (compact) {
           return Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -33,7 +34,8 @@ class PendingSyncNote extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Sem $count lançamento(s) aguardando sincronização.',
+                    'Inclui $count lançamento(s) ainda não sincronizado(s) '
+                    '(provisório).',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),

@@ -150,8 +150,13 @@ Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Stop-Proce
      novos, edições, pagamentos, estornos e cancelamentos feitos offline
      aparecem como "aguardando sincronização"; dá para editar ou desfazer
      antes de enviar.
-   - Totais e saldos são da API: com fila pendente, `PendingSyncNote` avisa
-     que os valores ainda não incluem esses lançamentos.
+   - Saldos do ciclo aberto (Início, relatório, "Disponível" do rateio)
+     **já somam o que está na fila**, como valor provisório:
+     `dashboard/pending_adjustment.dart` (função pura) aplica a diferença
+     entre o extrato da API e o extrato com a fila, por fundo (entradas e
+     saídas). Repasses não são recalculados no app: continuam os da API até
+     sincronizar. `PendingSyncNote` avisa "Inclui X lançamento(s) ainda não
+     sincronizado(s)".
    - Envio recusado (dado inválido) fica `REJECTED` e aparece na faixa
      vermelha → tela "Envios recusados" (corrigir, tentar de novo, descartar).
      Sem rede, 502/503/504 e 401 mantêm o envio na fila.

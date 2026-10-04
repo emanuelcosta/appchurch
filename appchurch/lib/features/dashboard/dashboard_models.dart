@@ -186,7 +186,25 @@ class DashboardData {
     required this.revenueByCategory,
     required this.titheEntries,
     required this.pendingPayables,
+    this.pendingIncluded = 0,
   });
+
+  /// Cópia com saldos ajustados pelos lançamentos ainda não sincronizados.
+  DashboardData withPending({
+    required Map<String, FundBalance> funds,
+    required TitheSummary? tithe,
+    required int pendingIncluded,
+  }) => DashboardData(
+    cycles: cycles,
+    cycle: cycle,
+    funds: funds,
+    tithe: tithe,
+    transfers: transfers,
+    revenueByCategory: revenueByCategory,
+    titheEntries: titheEntries,
+    pendingPayables: pendingPayables,
+    pendingIncluded: pendingIncluded,
+  );
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     final cycle = json['cycle'];
@@ -225,6 +243,10 @@ class DashboardData {
   final List<CategoryRevenue> revenueByCategory;
   final List<TitheEntry> titheEntries;
   final List<PendingPayable> pendingPayables;
+
+  /// Quantos lançamentos offline (ainda na fila) já estão somados nos
+  /// saldos: valores provisórios até a API confirmar.
+  final int pendingIncluded;
 
   FundBalance fund(String code) => funds[code] ?? FundBalance.empty;
 

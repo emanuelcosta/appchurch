@@ -253,7 +253,7 @@ void main() {
 
     // Extrato (do cache) já mostra o efeito do pagamento feito offline.
     expect(
-      find.textContaining('Sem 1 lançamento(s) aguardando'),
+      find.textContaining('Inclui 1 lançamento(s) ainda não sincronizado'),
       findsOneWidget,
     );
     expect(find.text('-R\$ 20,00'), findsOneWidget);
@@ -270,5 +270,45 @@ void main() {
     expect(find.text('-R\$ 20,00'), findsNothing);
     expect(find.text('R\$ 50,00'), findsOneWidget);
     expect(await client.pendingWrites(), 0);
+  });
+
+  testWidgets('Início soma na hora a oferta lançada offline', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final responses = _responses()
+      ..['finance/dashboard'] = {
+        'cycles': [_open],
+        'cycle': _open,
+        'funds': {
+          'OFERTAS_CULTO': {
+            'opening': 35.27,
+            'revenue': 48.1,
+            'expenses': 16,
+            'closing': 67.37,
+          },
+        },
+      };
+    final client = FakeApiClient(database: database, responses: responses);
+    await tester.pumpWidget(TesourariaApp(database: database, api: client));
+    await tester.pumpAndSettle();
+    expect(find.text('R\$ 67,37'), findsOneWidget);
+
+    client.connected = false;
+    await tester.tap(find.text('Tesouraria'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lançar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Oferta de culto').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Culto de doutrina'));
+    await tester.enterText(find.widgetWithText(TextField, 'PIX'), '5');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Início'));
+    await tester.pumpAndSettle();
+    expect(find.text('R\$ 72,37'), findsOneWidget);
+    expect(find.textContaining('Inclui 1 lançamento(s)'), findsOneWidget);
   });
 }

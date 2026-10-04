@@ -16,7 +16,15 @@ class LedgerService {
 
   /// Extrato do ciclo [cycleId] (padrão: o aberto) ou, com [period], de
   /// todos os lançamentos entre as datas, em qualquer ciclo.
-  Future<LedgerData> load({String? cycleId, DateTimeRange? period}) async {
+  Future<LedgerData> load({String? cycleId, DateTimeRange? period}) async =>
+      (await loadWithPending(cycleId: cycleId, period: period)).merged;
+
+  /// Extrato como está na API ([server]) e com a fila offline aplicada
+  /// ([merged]); a diferença entre os dois é o que ainda não sincronizou.
+  Future<({LedgerData server, LedgerData merged})> loadWithPending({
+    String? cycleId,
+    DateTimeRange? period,
+  }) async {
     final data = await _api.get(
       'finance/ledger',
       query: {
@@ -30,8 +38,11 @@ class LedgerService {
       throw StateError('A API retornou uma resposta inválida para o extrato.');
     }
     final ledger = LedgerData.fromJson(Map<String, dynamic>.from(data));
-    return ledger.withItems(
-      applyPendingOperations(ledger.items, await _pendingOperations()),
+    return (
+      server: ledger,
+      merged: ledger.withItems(
+        applyPendingOperations(ledger.items, await _pendingOperations()),
+      ),
     );
   }
 

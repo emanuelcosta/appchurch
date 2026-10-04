@@ -547,7 +547,7 @@ class _CycleTotals extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     double sum(LedgerKind kind) => items
-        .where((item) => item.kind == kind && !item.pendingSync)
+        .where((item) => item.kind == kind)
         .fold(0, (total, item) => total + item.amount);
     final textTheme = Theme.of(context).textTheme;
     Widget total(String label, double value, Color color) => Expanded(
