@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/pending_sync_note.dart';
 import '../cycles/close_cycle_page.dart';
 import '../cycles/cycles_service.dart';
 import '../dashboard/dashboard_models.dart';
@@ -127,6 +128,7 @@ class _CycleReportPageState extends State<CycleReportPage> {
                   message: 'Nenhum ciclo de prestação de contas cadastrado.',
                 )
               else ...[
+                PendingSyncNote(api: widget.api),
                 EntriesSection(data: data),
                 ExpensesSection(data: data),
                 BalancesSection(data: data),

@@ -142,6 +142,19 @@ Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Stop-Proce
      (`sync_operations`, Drift) e o `SyncService` reenvia na ordem quando a
      API volta. Todo cadastro leva **`id` gerado no app** e a API faz upsert
      por `id` → reenvio é **idempotente**.
+   - Com conexão, `OfflinePrefetch` (`features/home`) baixa os dados de todas
+     as telas (inclusive de cada ciclo) a cada 10 min, usando os próprios
+     serviços das telas para o cache ter as mesmas consultas.
+   - O extrato aplica a fila sobre os dados do servidor
+     (`features/ledger/pending_overlay.dart`, função pura): lançamentos
+     novos, edições, pagamentos, estornos e cancelamentos feitos offline
+     aparecem como "aguardando sincronização"; dá para editar ou desfazer
+     antes de enviar.
+   - Totais e saldos são da API: com fila pendente, `PendingSyncNote` avisa
+     que os valores ainda não incluem esses lançamentos.
+   - Envio recusado (dado inválido) fica `REJECTED` e aparece na faixa
+     vermelha → tela "Envios recusados" (corrigir, tentar de novo, descartar).
+     Sem rede, 502/503/504 e 401 mantêm o envio na fila.
    - Fechamento de ciclo exige conexão (é a prestação de contas oficial).
 3. **Dinheiro**: `numeric(19,4)` no banco; arredonde para 2 casas só na saída
    (`round2`). Nunca compare valores monetários com `==` sem tolerância.

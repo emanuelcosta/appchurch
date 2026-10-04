@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/utils/formatters.dart';
+import '../../shared/widgets/pending_sync_note.dart';
 import '../../shared/widgets/date_field.dart';
 import '../expenses/expense_models.dart';
 import '../expenses/expenses_service.dart';
@@ -184,6 +185,7 @@ class _PayPayablePageState extends State<PayPayablePage> {
               controller: _sources,
               available: _available,
               onChanged: () => setState(() {}),
+              availableNote: PendingSyncNote(api: widget.api, compact: true),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(

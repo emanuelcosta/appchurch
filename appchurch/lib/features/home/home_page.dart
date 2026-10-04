@@ -18,6 +18,7 @@ import '../settings/due_alert_settings_page.dart';
 import '../settings/required_fields_page.dart';
 import '../sync/sync_issues_page.dart';
 import 'module_menu.dart';
+import 'offline_prefetch.dart';
 
 /// Estrutura principal do app logado: abas inferiores e telas de cada módulo.
 class HomePage extends StatefulWidget {
@@ -55,12 +56,14 @@ class _HomePageState extends State<HomePage> {
   );
 
   final _alertSettings = DueAlertSettingsStore();
+  late final _prefetch = OfflinePrefetch(widget.api);
   final _requiredFields = RequiredFieldsStore();
 
   @override
   void initState() {
     super.initState();
     _sync.start();
+    _prefetch.start();
     _alertSettings.load();
     _requiredFields.load();
     _loadCongregationName();
@@ -80,6 +83,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _sync.dispose();
+    _prefetch.dispose();
     super.dispose();
   }
 

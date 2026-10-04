@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/utils/formatters.dart';
+import '../../shared/widgets/pending_sync_note.dart';
 import '../../shared/widgets/date_field.dart';
 import 'expense_models.dart';
 import 'expenses_service.dart';
@@ -300,6 +301,7 @@ class _ExpenseFormPageState extends State<ExpenseFormPage> {
                 controller: _sources,
                 available: _available,
                 onChanged: () => setState(() {}),
+                availableNote: PendingSyncNote(api: widget.api, compact: true),
               ),
             ] else ...[
               DateField(

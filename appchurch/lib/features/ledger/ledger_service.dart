@@ -4,6 +4,7 @@ import '../../core/api/api_client.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/json.dart';
 import 'ledger_models.dart';
+import 'pending_overlay.dart';
 
 /// Extrato do ciclo (receitas, despesas e contas a pagar) e pagamento de
 /// contas. Lançamentos feitos offline aparecem como "aguardando
@@ -29,20 +30,23 @@ class LedgerService {
       throw StateError('A API retornou uma resposta inválida para o extrato.');
     }
     final ledger = LedgerData.fromJson(Map<String, dynamic>.from(data));
-    final pending = await _pendingItems();
-    final known = ledger.items.map((item) => item.id).toSet();
-    return ledger.withItems([
-      ...pending.where((item) => !known.contains(item.id)),
-      ...ledger.items,
-    ]);
+    return ledger.withItems(
+      applyPendingOperations(ledger.items, await _pendingOperations()),
+    );
   }
 
   /// Paga (total ou parcialmente) uma conta; sem conexão, vai para a fila.
   Future<SendResult> pay(String payableId, Map<String, Object?> body) =>
       _api.send('finance/payables/$payableId/pay', {
         ...body,
+        // Identifica o pagamento na fila (permite desfazer antes de enviar).
+        'id': body['paymentId'],
         'congregationId': _api.congregationId,
       });
+
+  /// Desfaz o que ainda está na fila para este lançamento (não será enviado).
+  Future<void> discardPending(String entityId) async =>
+      _api.database?.discardPendingFor(_api.congregationId, entityId);
 
   /// Estorna uma receita (motivo vai para a auditoria). Funciona offline.
   Future<SendResult> reverseRevenue(String entryId, String reason) => _api.send(
@@ -86,50 +90,19 @@ class LedgerService {
     ];
   }
 
-  /// Receitas e despesas lançadas offline que ainda não foram enviadas.
-  Future<List<LedgerItem>> _pendingItems() async {
+  /// Gravações na fila offline, na ordem em que foram feitas.
+  Future<List<PendingOperation>> _pendingOperations() async {
     final database = _api.database;
     if (database == null) return [];
     final operations = await database.pendingOperations(_api.congregationId);
-    final items = <LedgerItem>[];
-    for (final operation in operations) {
-      if (operation.entityType != apiRequestEntity) continue;
-      final body = asMap(operation.payload['body']);
-      switch (operation.payload['path']) {
-        case 'finance/revenues':
-          items.add(
-            LedgerItem(
-              id: asString(body['id']) ?? operation.id,
-              kind: LedgerKind.revenue,
-              date: asDate(body['date']),
-              description: asString(body['description']) ?? 'Receita',
-              amount:
-                  asDouble(body['pixAmount']) + asDouble(body['cashAmount']),
-              fundCode: asString(body['fundCode']),
-              pendingSync: true,
-            ),
-          );
-        case 'finance/expenses':
-          items.add(
-            LedgerItem(
-              id: asString(body['id']) ?? operation.id,
-              kind: body['status'] == 'PAYABLE'
-                  ? LedgerKind.payable
-                  : LedgerKind.expense,
-              date: asDate(body['paymentDate'] ?? body['dueDate']),
-              description: asString(body['description']) ?? 'Despesa',
-              amount: asDouble(body['amount']),
-              remaining: body['status'] == 'PAYABLE'
-                  ? asDouble(body['amount'])
-                  : null,
-              funds: asMap(
-                body['fundingSources'],
-              ).map((code, value) => MapEntry(code, asDouble(value))),
-              pendingSync: true,
-            ),
-          );
-      }
-    }
-    return items;
+    return [
+      for (final operation in operations)
+        if (operation.entityType == apiRequestEntity &&
+            operation.payload['path'] is String)
+          (
+            path: operation.payload['path'] as String,
+            body: asMap(operation.payload['body']),
+          ),
+    ];
   }
 }

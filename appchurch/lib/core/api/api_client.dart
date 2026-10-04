@@ -105,6 +105,10 @@ class ApiClient {
     }
   }
 
+  /// Quantas gravações feitas offline ainda aguardam envio.
+  Future<int> pendingWrites() async =>
+      await database?.countPendingWrites(congregationId, apiRequestEntity) ?? 0;
+
   void _markOnline() {
     offline.value = false;
     reachable.value++;

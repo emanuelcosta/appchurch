@@ -5,6 +5,7 @@ import '../../core/api/api_client.dart';
 import '../../core/settings/due_alert_settings.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/pending_sync_note.dart';
 import '../../shared/widgets/section_card.dart';
 import '../../shared/widgets/value_row.dart';
 import 'dashboard_models.dart';
@@ -92,6 +93,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
                 Text(cycle.label),
                 const SizedBox(height: 8),
+                PendingSyncNote(api: widget.api),
                 BalanceTiles(data: data),
                 const SizedBox(height: 8),
                 _CycleSummary(data: data),

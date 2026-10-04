@@ -123,6 +123,36 @@ class _LedgerDetailsPageState extends State<LedgerDetailsPage> {
     }
   }
 
+  /// Desfaz o que ainda não foi enviado (lançamento novo ou alteração).
+  Future<void> _discardPending() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Desfazer?'),
+        content: const Text(
+          'O que foi feito offline neste lançamento não será enviado.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Desfazer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    // Despesa lançada já paga entra na fila pelo id da conta.
+    final entityId = item.kind == LedgerKind.expense && item.paidOnCreation
+        ? item.payableId ?? item.id
+        : item.id;
+    await _service.discardPending(entityId);
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
   Future<void> _reverse() async {
     final isPayable = item.kind == LedgerKind.payable;
     final choice = await showReverseDialog(
@@ -289,6 +319,7 @@ class _LedgerDetailsPageState extends State<LedgerDetailsPage> {
                 _openAndClose(PayPayablePage(api: widget.api, payable: item)),
             onEdit: _edit,
             onReverse: _reverse,
+            onDiscardPending: _discardPending,
           ),
         ],
       ),
@@ -304,6 +335,7 @@ class _Actions extends StatelessWidget {
     required this.onPay,
     required this.onEdit,
     required this.onReverse,
+    required this.onDiscardPending,
   });
 
   final LedgerItem item;
@@ -312,14 +344,43 @@ class _Actions extends StatelessWidget {
   final VoidCallback onPay;
   final VoidCallback onEdit;
   final VoidCallback onReverse;
+  final VoidCallback onDiscardPending;
 
   @override
   Widget build(BuildContext context) {
     if (item.pendingSync) {
-      return const _Note(
-        icon: Icons.cloud_upload_outlined,
-        text:
-            'Aguardando sincronização. Para alterar, espere o envio terminar.',
+      final canEditPending = switch (item.kind) {
+        LedgerKind.revenue => true,
+        LedgerKind.expense => item.paidOnCreation,
+        LedgerKind.payable => true,
+      };
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _Note(
+            icon: Icons.cloud_upload_outlined,
+            text:
+                'Aguardando sincronização: será enviado quando a conexão com '
+                'a API voltar. Ainda dá para corrigir ou desfazer.',
+          ),
+          if (canEditPending) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: busy ? null : onEdit,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Editar'),
+            ),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: busy ? null : onDiscardPending,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            icon: const Icon(Icons.undo),
+            label: const Text('Desfazer (não enviar)'),
+          ),
+        ],
       );
     }
     if (editable == null) {

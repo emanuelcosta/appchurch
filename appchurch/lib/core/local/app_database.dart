@@ -174,6 +174,36 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Descarta da fila tudo o que ainda não foi enviado para [entityId]
+  /// (desfazer lançamento/edição feito offline).
+  Future<void> discardPendingFor(String scopeId, String entityId) {
+    return (update(syncOperations)..where(
+          (row) =>
+              row.scopeId.equals(scopeId) &
+              row.entityId.equals(entityId) &
+              row.status.equals('PENDING'),
+        ))
+        .write(
+          SyncOperationsCompanion(
+            status: const Value('DISCARDED'),
+            updatedAt: Value(DateTime.now().toUtc()),
+          ),
+        );
+  }
+
+  /// Quantas gravações ainda aguardam envio.
+  Future<int> countPendingWrites(String scopeId, String entityType) async {
+    final rows =
+        await (select(syncOperations)..where(
+              (row) =>
+                  row.scopeId.equals(scopeId) &
+                  row.entityType.equals(entityType) &
+                  row.status.equals('PENDING'),
+            ))
+            .get();
+    return rows.length;
+  }
+
   /// Devolve à fila operações interrompidas (app fechado durante o envio).
   Future<void> resetInterruptedOperations() {
     return (update(syncOperations)

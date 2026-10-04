@@ -52,6 +52,7 @@ class FundingSplitEditor extends StatelessWidget {
     required this.controller,
     required this.available,
     required this.onChanged,
+    this.availableNote,
   });
 
   final double total;
@@ -60,6 +61,9 @@ class FundingSplitEditor extends StatelessWidget {
   /// Saldo de cada fonte no ciclo atual; `null` se não foi possível carregar.
   final Map<String, double>? available;
   final VoidCallback onChanged;
+
+  /// Aviso sobre o saldo disponível (ex.: lançamentos ainda não sincronizados).
+  final Widget? availableNote;
 
   void _useRemaining(String fund) {
     final value = controller
@@ -82,6 +86,7 @@ class FundingSplitEditor extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         FundingProgress(split: controller.split(total)),
+        ?availableNote,
         const SizedBox(height: 8),
         for (final fund in fundNames.keys)
           FundingSourceCard(

@@ -89,6 +89,38 @@ class LedgerItem {
 
   bool get isIncome => kind == LedgerKind.revenue;
 
+  LedgerItem copyWith({
+    String? id,
+    LedgerKind? kind,
+    DateTime? date,
+    String? description,
+    double? amount,
+    double? remaining,
+    bool? pendingSync,
+    String? payableId,
+    bool? paidOnCreation,
+    Map<String, double>? funds,
+    String? paymentMethod,
+  }) => LedgerItem(
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    date: date ?? this.date,
+    description: description ?? this.description,
+    amount: amount ?? this.amount,
+    fundCode: fundCode,
+    category: category,
+    paymentMethod: paymentMethod ?? this.paymentMethod,
+    funds: funds ?? this.funds,
+    remaining: remaining ?? this.remaining,
+    pendingSync: pendingSync ?? this.pendingSync,
+    categoryId: categoryId,
+    pixAmount: pixAmount,
+    cashAmount: cashAmount,
+    payableId: payableId ?? this.payableId,
+    paidOnCreation: paidOnCreation ?? this.paidOnCreation,
+    notificationDaysBefore: notificationDaysBefore,
+  );
+
   /// Rótulo usado nos filtros: tipo da receita ou categoria da despesa.
   String get tag => switch (kind) {
     LedgerKind.revenue => category ?? fundNames[fundCode] ?? 'Receita',

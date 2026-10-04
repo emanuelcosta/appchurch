@@ -65,6 +65,15 @@ Map<String, Object?> _responses() => {
         'cashAmount': 30,
       },
       {
+        'id': 'p1',
+        'kind': 'PAYABLE',
+        'date': '2099-12-31',
+        'description': 'CAGECE OUT/2026',
+        'category': 'CAGECE',
+        'amount': 50,
+        'remaining': 50,
+      },
+      {
         'id': 'pay-1',
         'kind': 'EXPENSE',
         'payableId': 'payable-1',
@@ -224,5 +233,42 @@ void main() {
     await tester.tap(find.text('Descartar').last);
     await tester.pumpAndSettle();
     expect(find.text('Nenhum envio recusado.'), findsOneWidget);
+  });
+
+  testWidgets('pagamento offline aparece no extrato e pode ser desfeito', (
+    tester,
+  ) async {
+    final client = await openLedger(tester);
+    client.connected = false;
+
+    await openItem(tester, 'CAGECE OUT/2026');
+    await tester.tap(find.text('Pagar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, '20');
+    await tester.pump();
+    await tester.tap(find.text('Usar o que falta').at(0));
+    await tester.pump();
+    await tester.tap(find.text('Registrar pagamento'));
+    await tester.pumpAndSettle();
+
+    // Extrato (do cache) já mostra o efeito do pagamento feito offline.
+    expect(
+      find.textContaining('Sem 1 lançamento(s) aguardando'),
+      findsOneWidget,
+    );
+    expect(find.text('-R\$ 20,00'), findsOneWidget);
+    expect(find.text('R\$ 30,00'), findsOneWidget);
+
+    // O pagamento pendente pode ser desfeito antes de enviar.
+    await tester.tap(find.text('-R\$ 20,00'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Desfazer (não enviar)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Desfazer').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('-R\$ 20,00'), findsNothing);
+    expect(find.text('R\$ 50,00'), findsOneWidget);
+    expect(await client.pendingWrites(), 0);
   });
 }

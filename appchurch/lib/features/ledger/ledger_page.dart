@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/pending_sync_note.dart';
 import '../dashboard/dashboard_models.dart';
 import '../dashboard/widgets/cycle_selector.dart';
 import '../expenses/expense_form_page.dart';
@@ -338,6 +339,7 @@ class _LedgerPageState extends State<LedgerPage> {
                   items: data.items,
                   onOpenReport: widget.onOpenReport,
                 ),
+                PendingSyncNote(api: widget.api, compact: true),
                 const SizedBox(height: 8),
                 Row(
                   children: [
