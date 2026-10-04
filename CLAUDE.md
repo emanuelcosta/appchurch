@@ -222,6 +222,11 @@ Regras:
   conferidos com a planilha. Correções aplicadas (bazar duplicado, oferta
   com data 2029, ciclo atual reaberto, tipos de receita, categoria GERAIS)
   com backups em `backups/`.
+- **Migration 0009 aplicada (04/10/2026):** o banco recusa
+  incluir/alterar/excluir receitas, pagamentos e rateios com data em ciclo
+  fechado (erro `P0001`, repassado ao app pela API). Scripts de correção
+  excepcional precisam de `set local app.allow_closed_cycle_edit = 'on'`
+  na transação. Policy de membros usa `SECRETARY`.
 - **Testes:** app 22 testes, API 18 testes — todos passando; `flutter analyze`
   sem avisos.
 - **Não testado de ponta a ponta:** gravação de receita com usuário logado
@@ -253,10 +258,6 @@ Regras:
   API, falta ligar no app).
 - **Autorização na API**: validar o token e o perfil em todas as rotas (hoje só
   `/me` valida). Fechar ciclo deve exigir `ADMIN`/`TREASURER`.
-- Migration com trigger que **bloqueia** inserção/alteração de lançamentos com
-  data dentro de ciclo fechado.
-- Policy de `congregation_members` usa o papel `SECRETARIA`, mas o papel
-  cadastrado é `SECRETARY` — corrigir numa nova migration.
 - Prazos de alerta de vencimento e campos obrigatórios são salvos **por
   aparelho** (`shared_preferences`); levar para uma tabela de configuração da
   congregação, para valer para todos os usuários.

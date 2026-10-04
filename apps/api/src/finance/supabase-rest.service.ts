@@ -77,6 +77,8 @@ export class SupabaseRestService {
     // Só código e mensagem do Postgres: `details` traz a linha (dados pessoais).
     const error = (await response.json().catch(() => ({}))) as { code?: string; message?: string };
     this.logger.warn(`Supabase recusou ${method} ${path.split('?')[0]} (${response.status} ${error.code ?? ''}): ${error.message ?? ''}`);
+    // P0001: regra do próprio banco (ex.: ciclo fechado), mensagem já pronta para o usuário.
+    if (error.code === 'P0001' && error.message) throw new BadRequestException(error.message);
     if (response.status >= 400 && response.status < 500) {
       throw new BadRequestException(`O banco de dados recusou o lançamento (${error.code ?? response.status}). Confira os dados.`);
     }
