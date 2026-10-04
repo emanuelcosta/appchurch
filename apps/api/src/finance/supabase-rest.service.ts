@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export type SupabaseRow = Record<string, unknown>;
@@ -6,6 +6,8 @@ export type SupabaseRow = Record<string, unknown>;
 /** Acesso ao Supabase (PostgREST) com a service role, compartilhado pelos serviços. */
 @Injectable()
 export class SupabaseRestService {
+  private readonly logger = new Logger(SupabaseRestService.name);
+
   constructor(private readonly config: ConfigService) {}
 
   credentials() {
@@ -19,6 +21,8 @@ export class SupabaseRestService {
     const { url, key } = this.credentials();
     const response = await fetch(`${url}/rest/v1/${table}?${query}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
+    }).catch(() => {
+      throw new ServiceUnavailableException('Sem conexão com o banco de dados. Tente novamente em instantes.');
     });
     if (!response.ok) throw new ServiceUnavailableException(`Falha ao consultar o Supabase (${response.status}).`);
     return (await response.json()) as SupabaseRow[];
@@ -58,12 +62,24 @@ export class SupabaseRestService {
 
   private async send(path: string, method: string, body: SupabaseRow | undefined, prefer: string) {
     const { url, key } = this.credentials();
-    const response = await fetch(`${url}/rest/v1/${path}`, {
-      method,
-      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: prefer },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    if (!response.ok) throw new ServiceUnavailableException(`Falha ao salvar no Supabase (${response.status}).`);
-    return response;
+    let response: Response;
+    try {
+      response = await fetch(`${url}/rest/v1/${path}`, {
+        method,
+        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: prefer },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch {
+      // Sem internet no servidor: o app mantém o lançamento na fila e reenvia.
+      throw new ServiceUnavailableException('Sem conexão com o banco de dados. Tente novamente em instantes.');
+    }
+    if (response.ok) return response;
+    // Só código e mensagem do Postgres: `details` traz a linha (dados pessoais).
+    const error = (await response.json().catch(() => ({}))) as { code?: string; message?: string };
+    this.logger.warn(`Supabase recusou ${method} ${path.split('?')[0]} (${response.status} ${error.code ?? ''}): ${error.message ?? ''}`);
+    if (response.status >= 400 && response.status < 500) {
+      throw new BadRequestException(`O banco de dados recusou o lançamento (${error.code ?? response.status}). Confira os dados.`);
+    }
+    throw new ServiceUnavailableException(`Falha ao salvar no Supabase (${response.status}).`);
   }
 }

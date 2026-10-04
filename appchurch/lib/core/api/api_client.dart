@@ -118,10 +118,14 @@ class ApiClient {
   }
 }
 
-bool isConnectionError(DioException error) =>
-    error.response == null &&
-    error.type != DioExceptionType.cancel &&
-    error.type != DioExceptionType.badCertificate;
+/// Sem resposta da API (sem rede, API desligada) ou API sem acesso ao banco
+/// (502/503/504): consultas usam o cache e gravações ficam na fila.
+bool isConnectionError(DioException error) {
+  final status = error.response?.statusCode;
+  if (status != null) return status == 502 || status == 503 || status == 504;
+  return error.type != DioExceptionType.cancel &&
+      error.type != DioExceptionType.badCertificate;
+}
 
 /// Converte erros de rede/API em mensagens para o usuário.
 String describeApiError(Object error) {

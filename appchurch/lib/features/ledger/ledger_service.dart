@@ -1,4 +1,7 @@
+import 'package:flutter/material.dart' show DateTimeRange;
+
 import '../../core/api/api_client.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/json.dart';
 import 'ledger_models.dart';
 
@@ -10,10 +13,17 @@ class LedgerService {
 
   final ApiClient _api;
 
-  Future<LedgerData> load({String? cycleId}) async {
+  /// Extrato do ciclo [cycleId] (padrão: o aberto) ou, com [period], de
+  /// todos os lançamentos entre as datas, em qualquer ciclo.
+  Future<LedgerData> load({String? cycleId, DateTimeRange? period}) async {
     final data = await _api.get(
       'finance/ledger',
-      query: {'congregationId': _api.congregationId, 'cycleId': ?cycleId},
+      query: {
+        'congregationId': _api.congregationId,
+        if (period == null) 'cycleId': ?cycleId,
+        if (period != null) 'from': toIsoDate(period.start),
+        if (period != null) 'to': toIsoDate(period.end),
+      },
     );
     if (data is! Map) {
       throw StateError('A API retornou uma resposta inválida para o extrato.');

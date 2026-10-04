@@ -3,6 +3,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { PayPayableDto } from './dto/pay-payable.dto';
+import { ReverseDto } from './dto/reverse.dto';
 import { LedgerService } from './ledger.service';
 
 /** Lançamentos da tesouraria (extrato, receitas, despesas, pagamentos). */
@@ -14,8 +15,10 @@ export class LedgerController {
   getLedger(
     @Query('congregationId') congregationId: string,
     @Query('cycleId') cycleId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.ledger.ledger(congregationId, cycleId);
+    return this.ledger.ledger(congregationId, cycleId, from && to ? { from, to } : undefined);
   }
 
   @Post('revenues')
@@ -47,8 +50,38 @@ export class LedgerController {
   }
 
   @Post('expenses')
-  createExpense(@Body() dto: CreateExpenseDto) {
-    return this.ledger.createExpense(dto);
+  createExpense(
+    @Body() dto: CreateExpenseDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.ledger.createExpense(dto, authorization);
+  }
+
+  @Post('revenues/:entryId/reverse')
+  reverseRevenue(
+    @Param('entryId') entryId: string,
+    @Body() dto: ReverseDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.ledger.reverseRevenue(entryId, dto, authorization);
+  }
+
+  @Post('payments/:paymentId/reverse')
+  reversePayment(
+    @Param('paymentId') paymentId: string,
+    @Body() dto: ReverseDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.ledger.reversePayment(paymentId, dto, authorization);
+  }
+
+  @Post('payables/:payableId/cancel')
+  cancelPayable(
+    @Param('payableId') payableId: string,
+    @Body() dto: ReverseDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.ledger.cancelPayable(payableId, dto, authorization);
   }
 
   @Post('payables/:payableId/pay')

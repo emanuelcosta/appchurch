@@ -63,8 +63,12 @@ class SyncService {
           await _api.post(path, data: operation.payload['body']);
           await _database.markOperationSynced(operation.id);
         } on DioException catch (error) {
-          if (isConnectionError(error)) {
-            await _database.markOperationFailed(operation.id, 'Sem conexão');
+          // Sem conexão, banco fora do ar ou sessão expirada: tenta depois.
+          if (isConnectionError(error) || error.response?.statusCode == 401) {
+            await _database.markOperationFailed(
+              operation.id,
+              describeApiError(error),
+            );
             break;
           }
           // Recusada pela API (dados inválidos): não adianta reenviar.

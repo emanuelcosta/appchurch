@@ -1,3 +1,4 @@
+import '../../core/utils/formatters.dart';
 import '../../core/utils/json.dart';
 import '../dashboard/dashboard_models.dart';
 
@@ -66,6 +67,25 @@ class LedgerItem {
 
   String get fundsLabel =>
       funds.keys.map((code) => fundNames[code] ?? code).join(' + ');
+
+  /// Busca do extrato: descrição, nome, tipo ou valor ("47,60", "47.6",
+  /// "R$ 47" ou só parte do valor, como "47").
+  bool matches(String query) {
+    final text = query.trim().toLowerCase();
+    if (text.isEmpty) return true;
+    final values = [amount, ?remaining];
+    final number = parseMoney(text);
+    if (number != null &&
+        values.any((value) => (value - number).abs() < 0.005)) {
+      return true;
+    }
+    final searchable = [
+      description,
+      tag,
+      ...values.map(formatMoney),
+    ].join(' ').toLowerCase();
+    return searchable.contains(text);
+  }
 }
 
 class LedgerData {

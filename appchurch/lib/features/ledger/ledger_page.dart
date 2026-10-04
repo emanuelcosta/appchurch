@@ -38,16 +38,45 @@ class _LedgerPageState extends State<LedgerPage> {
   late final LedgerService _service = LedgerService(widget.api);
   late Future<LedgerData> _data = _service.load();
   String? _cycleId;
+
+  /// Período personalizado: quando definido, substitui o ciclo e traz
+  /// lançamentos de qualquer ciclo entre as datas.
+  DateTimeRange? _period;
   late LedgerFilter _filter = widget.initialFilter;
   String? _tag;
   String _search = '';
 
   Future<void> _reload() async {
-    final future = _service.load(cycleId: _cycleId);
+    final future = _service.load(cycleId: _cycleId, period: _period);
     setState(() {
       _data = future;
     });
     await future.then((_) {}, onError: (_) {});
+  }
+
+  Future<void> _pickPeriod() async {
+    final today = widget.today ?? DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(day.year + 1, 12, 31),
+      initialDateRange:
+          _period ??
+          DateTimeRange(start: DateTime(day.year, day.month - 3, 1), end: day),
+      helpText: 'Período do extrato',
+      saveText: 'Buscar',
+    );
+    if (picked == null || !mounted) return;
+    _period = picked;
+    _tag = null;
+    await _reload();
+  }
+
+  void _clearPeriod() {
+    _period = null;
+    _tag = null;
+    _reload();
   }
 
   Future<void> _openAndReload(Widget page) async {
@@ -123,6 +152,99 @@ class _LedgerPageState extends State<LedgerPage> {
     );
   }
 
+  static const _filterLabels = {
+    LedgerFilter.all: 'Todos',
+    LedgerFilter.income: 'Entradas',
+    LedgerFilter.outcome: 'Saídas',
+    LedgerFilter.payable: 'A pagar',
+  };
+
+  bool get _hasFilters => _filter != LedgerFilter.all || _tag != null;
+
+  /// Movimento (entradas/saídas/a pagar) e tipo ficam num painel para não
+  /// poluir o extrato. Trocar o movimento mantém o painel aberto e atualiza
+  /// os tipos; escolher um tipo fecha o painel.
+  void _openFilters(List<LedgerItem> items) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          void update(VoidCallback change) {
+            setState(change);
+            setSheetState(() {});
+          }
+
+          final textTheme = Theme.of(sheetContext).textTheme;
+          final tags =
+              items
+                  .where(_matchesFilter)
+                  .map((item) => item.tag)
+                  .toSet()
+                  .toList()
+                ..sort();
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('Filtros', style: textTheme.titleMedium),
+                      ),
+                      if (_hasFilters)
+                        TextButton(
+                          onPressed: () => update(() {
+                            _filter = LedgerFilter.all;
+                            _tag = null;
+                          }),
+                          child: const Text('Limpar'),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Movimento', style: textTheme.labelLarge),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final entry in _filterLabels.entries)
+                        ChoiceChip(
+                          label: Text(entry.value),
+                          selected: _filter == entry.key,
+                          onSelected: (_) => update(() {
+                            _filter = entry.key;
+                            _tag = null;
+                          }),
+                        ),
+                    ],
+                  ),
+                  if (tags.length >= 2) ...[
+                    const SizedBox(height: 16),
+                    Text('Tipo', style: textTheme.labelLarge),
+                    const SizedBox(height: 8),
+                    FilterChips(
+                      options: tags,
+                      selected: _tag,
+                      onSelected: (value) {
+                        setState(() => _tag = value);
+                        Navigator.pop(sheetContext);
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   bool _matchesFilter(LedgerItem item) => switch (_filter) {
     LedgerFilter.all => true,
     LedgerFilter.income => item.kind == LedgerKind.revenue,
@@ -155,80 +277,101 @@ class _LedgerPageState extends State<LedgerPage> {
           }
           final data = snapshot.data!;
           final byKind = data.items.where(_matchesFilter).toList();
-          final tags = (byKind.map((item) => item.tag).toSet().toList()
-            ..sort());
           final visible = byKind
               .where((item) => _tag == null || item.tag == _tag)
-              .where(
-                (item) =>
-                    _search.isEmpty ||
-                    '${item.description} ${item.tag}'.toLowerCase().contains(
-                      _search.toLowerCase(),
-                    ),
-              )
+              .where((item) => item.matches(_search))
               .toList();
           return RefreshIndicator(
             onRefresh: _reload,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
-                if (data.cycles.isNotEmpty)
-                  CycleSelector(
-                    cycles: data.cycles,
-                    selectedId: data.cycle?.id,
-                    onChanged: (id) {
-                      _cycleId = id;
-                      _reload();
-                    },
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _period != null
+                          ? _PeriodBanner(
+                              period: _period!,
+                              onEdit: _pickPeriod,
+                              onClear: _clearPeriod,
+                            )
+                          : data.cycles.isNotEmpty
+                          ? CycleSelector(
+                              cycles: data.cycles,
+                              selectedId: data.cycle?.id,
+                              onChanged: (id) {
+                                _cycleId = id;
+                                _reload();
+                              },
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    if (_period == null) ...[
+                      const SizedBox(width: 8),
+                      IconButton.outlined(
+                        tooltip: 'Buscar por período',
+                        onPressed: _pickPeriod,
+                        icon: const Icon(Icons.edit_calendar),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 8),
                 _CycleTotals(
                   items: data.items,
                   onOpenReport: widget.onOpenReport,
                 ),
                 const SizedBox(height: 8),
-                SegmentedButton<LedgerFilter>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(
-                      value: LedgerFilter.all,
-                      label: Text('Todos'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          hintText: 'Buscar por descrição, nome, tipo ou valor',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (value) => setState(() => _search = value),
+                      ),
                     ),
-                    ButtonSegment(
-                      value: LedgerFilter.income,
-                      label: Text('Entradas'),
-                    ),
-                    ButtonSegment(
-                      value: LedgerFilter.outcome,
-                      label: Text('Saídas'),
-                    ),
-                    ButtonSegment(
-                      value: LedgerFilter.payable,
-                      label: Text('A pagar'),
+                    const SizedBox(width: 8),
+                    IconButton.outlined(
+                      tooltip: 'Filtros',
+                      isSelected: _hasFilters,
+                      onPressed: () => _openFilters(data.items),
+                      icon: Badge(
+                        isLabelVisible: _hasFilters,
+                        smallSize: 8,
+                        child: const Icon(Icons.filter_list),
+                      ),
                     ),
                   ],
-                  selected: {_filter},
-                  onSelectionChanged: (value) => setState(() {
-                    _filter = value.first;
-                    _tag = null;
-                  }),
                 ),
-                const SizedBox(height: 8),
-                FilterChips(
-                  options: tags,
-                  selected: _tag,
-                  onSelected: (value) => setState(() => _tag = value),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Buscar por descrição, nome ou tipo',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+                if (_hasFilters) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      if (_filter != LedgerFilter.all)
+                        InputChip(
+                          label: Text(_filterLabels[_filter]!),
+                          deleteButtonTooltipMessage: 'Limpar movimento',
+                          onDeleted: () => setState(() {
+                            _filter = LedgerFilter.all;
+                            _tag = null;
+                          }),
+                        ),
+                      if (_tag != null)
+                        InputChip(
+                          label: Text(_tag!),
+                          deleteButtonTooltipMessage: 'Limpar tipo',
+                          onDeleted: () => setState(() => _tag = null),
+                        ),
+                    ],
                   ),
-                  onChanged: (value) => setState(() => _search = value),
-                ),
+                ],
                 const SizedBox(height: 12),
                 if (visible.isEmpty)
                   const EmptyMessage(
@@ -294,6 +437,51 @@ class _LedgerPageState extends State<LedgerPage> {
     if (_sameDay(date, today)) return 'Hoje';
     if (_sameDay(date, today.subtract(const Duration(days: 1)))) return 'Ontem';
     return formatDate(date);
+  }
+}
+
+/// Período personalizado em uso, com opções de alterar ou voltar ao ciclo.
+class _PeriodBanner extends StatelessWidget {
+  const _PeriodBanner({
+    required this.period,
+    required this.onEdit,
+    required this.onClear,
+  });
+
+  final DateTimeRange period;
+  final VoidCallback onEdit;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputDecorator(
+      decoration: const InputDecoration(
+        labelText: 'Período (todos os ciclos)',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.edit_calendar),
+        contentPadding: EdgeInsets.fromLTRB(12, 4, 0, 4),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: onEdit,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  '${formatDate(period.start)} a ${formatDate(period.end)}',
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Voltar ao ciclo',
+            onPressed: onClear,
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
   }
 }
 

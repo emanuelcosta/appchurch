@@ -444,15 +444,27 @@ void main() {
     expect(find.text('CAGECE SET/2026'), findsOneWidget);
     expect(find.text('Microfone'), findsOneWidget);
 
-    await tester.tap(find.text('Entradas').last);
+    // Movimento e tipo ficam escondidos atrás do botão de filtros.
+    expect(find.widgetWithText(ChoiceChip, 'Bazar'), findsNothing);
+    await tester.tap(find.byTooltip('Filtros'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Entradas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Bazar'));
     await tester.pumpAndSettle();
     expect(find.text('Microfone'), findsNothing);
     expect(find.text('CAGECE SET/2026'), findsNothing);
-
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Bazar'));
-    await tester.pumpAndSettle();
     expect(find.text('Repasse bazar'), findsOneWidget);
     expect(find.text('culto de doutrina'), findsNothing);
+
+    // Chips dos filtros ativos permitem limpar.
+    await tester.tap(find.byTooltip('Limpar tipo'));
+    await tester.pumpAndSettle();
+    expect(find.text('culto de doutrina'), findsOneWidget);
+    expect(find.text('Microfone'), findsNothing);
+    await tester.tap(find.byTooltip('Limpar movimento'));
+    await tester.pumpAndSettle();
+    expect(find.text('Microfone'), findsOneWidget);
   });
 
   testWidgets('lançamentos: paga conta combinando fontes', (tester) async {
