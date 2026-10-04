@@ -1,0 +1,17 @@
+{
+  "name": "@tesouraria/worker",
+  "private": true,
+  "scripts": {
+    "start": "node dist/main.js",
+    "start:dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "test": "npm run build && node --test dist/*.test.js"
+  },
+  "devDependencies": {
+    "firebase-admin": "^13.0.2",
+    "@supabase/supabase-js": "^2.57.4",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

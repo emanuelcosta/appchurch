@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTP sem TLS liberado apenas para a API na rede local (fase de testes).
+  Todo o resto (Supabase etc.) continua exigindo HTTPS.
+  Ao publicar a API com HTTPS, remova os domínios abaixo.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.18.238</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

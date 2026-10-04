@@ -1,0 +1,12 @@
+{
+  "name": "tesouraria",
+  "private": true,
+  "scripts": {
+    "dev:api": "npm --prefix apps/api run start:dev",
+    "dev:worker": "npm --prefix apps/worker run start:dev",
+    "lint": "npm --prefix apps/api run lint",
+    "test": "npm --prefix apps/api test",
+    "test:all": "powershell -ExecutionPolicy Bypass -File scripts/test-all.ps1",
+    "bootstrap": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1"
+  }
+}
