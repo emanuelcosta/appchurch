@@ -14,6 +14,9 @@ class FakeApiClient extends ApiClient {
   bool connected;
   final posts = <String, Object?>{};
 
+  /// Caminhos que a API recusa (400) com a mensagem informada.
+  final rejections = <String, String>{};
+
   /// Como o cache real: o que já foi lido continua disponível offline.
   final _seen = <String, Object?>{};
 
@@ -32,6 +35,8 @@ class FakeApiClient extends ApiClient {
       throw _offlineError(path);
     }
     offline.value = false;
+    // Como a API real: responder dispara a sincronização da fila.
+    reachable.value++;
     return _seen[path] = responses[path];
   }
 
@@ -39,6 +44,19 @@ class FakeApiClient extends ApiClient {
   Future<Object?> post(String path, {Object? data}) async {
     await Future<void>.delayed(Duration.zero);
     if (!connected) throw _offlineError(path);
+    final rejection = rejections[path];
+    if (rejection != null) {
+      final options = RequestOptions(path: path);
+      throw DioException(
+        requestOptions: options,
+        type: DioExceptionType.badResponse,
+        response: Response(
+          requestOptions: options,
+          statusCode: 400,
+          data: {'message': rejection},
+        ),
+      );
+    }
     posts[path] = data;
     return data;
   }

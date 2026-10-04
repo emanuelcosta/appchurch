@@ -16,6 +16,7 @@ import '../profile/profile_service.dart';
 import '../settings/categories_page.dart';
 import '../settings/due_alert_settings_page.dart';
 import '../settings/required_fields_page.dart';
+import '../sync/sync_issues_page.dart';
 import 'module_menu.dart';
 
 /// Estrutura principal do app logado: abas inferiores e telas de cada módulo.
@@ -191,10 +192,17 @@ class _HomePageState extends State<HomePage> {
       body: Column(
         children: [
           ListenableBuilder(
-            listenable: Listenable.merge([widget.api.offline, _sync.pending]),
+            listenable: Listenable.merge([
+              widget.api.offline,
+              _sync.pending,
+              _sync.rejected,
+            ]),
             builder: (context, _) => ConnectionBanner(
               offline: widget.api.offline.value,
               pending: _sync.pending.value,
+              rejected: _sync.rejected.value,
+              onTapRejected: () =>
+                  _open(SyncIssuesPage(api: widget.api, sync: _sync)),
             ),
           ),
           Expanded(child: _body()),

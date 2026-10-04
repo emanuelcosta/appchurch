@@ -176,6 +176,23 @@ Se o PowerShell bloquear scripts:
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
+Deixe esse terminal aberto: fechar desliga a API. Outros comandos da API:
+
+```powershell
+# Conferir se a API está no ar (deve responder 200)
+curl.exe http://localhost:3000/api/v1/health
+curl.exe http://192.168.18.238:3000/api/v1/health   # pelo IP que o celular usa
+
+# Gerar a versão nova da API e religar (após alterar o código)
+cd C:\Users\emanu\Documents\tesouraria_eixodocarro\apps\api
+npm run build
+cd ..\..
+.\scripts\start-api.ps1
+
+# Porta 3000 em uso (API antiga ainda ligada): encerra o processo
+Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+
 Terminal 2 — executar no dispositivo conectado:
 
 ```powershell

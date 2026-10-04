@@ -142,6 +142,38 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Envios recusados pela API, aguardando o usuário corrigir ou descartar.
+  Future<List<SyncOperation>> rejectedOperations(String scopeId) {
+    return (select(syncOperations)
+          ..where(
+            (row) =>
+                row.scopeId.equals(scopeId) & row.status.equals('REJECTED'),
+          )
+          ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
+        .get();
+  }
+
+  /// Devolve à fila um envio recusado (ex.: depois de corrigir o ciclo).
+  Future<void> retryOperation(String id) {
+    return (update(syncOperations)..where((row) => row.id.equals(id))).write(
+      SyncOperationsCompanion(
+        status: const Value('PENDING'),
+        lastError: const Value(null),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
+  /// Descarta um envio recusado (fica no histórico local como DISCARDED).
+  Future<void> discardOperation(String id) {
+    return (update(syncOperations)..where((row) => row.id.equals(id))).write(
+      SyncOperationsCompanion(
+        status: const Value('DISCARDED'),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
   /// Devolve à fila operações interrompidas (app fechado durante o envio).
   Future<void> resetInterruptedOperations() {
     return (update(syncOperations)

@@ -44,6 +44,48 @@ class LedgerService {
         'congregationId': _api.congregationId,
       });
 
+  /// Estorna uma receita (motivo vai para a auditoria). Funciona offline.
+  Future<SendResult> reverseRevenue(String entryId, String reason) => _api.send(
+    'finance/revenues/$entryId/reverse',
+    {'id': entryId, 'congregationId': _api.congregationId, 'reason': reason},
+  );
+
+  /// Estorna o pagamento de uma despesa: cancela a despesa ou mantém a
+  /// conta em aberto. Funciona offline.
+  Future<SendResult> reversePayment(
+    String paymentId,
+    String reason, {
+    required bool cancelExpense,
+  }) => _api.send('finance/payments/$paymentId/reverse', {
+    'id': paymentId,
+    'congregationId': _api.congregationId,
+    'reason': reason,
+    'cancelExpense': cancelExpense,
+  });
+
+  /// Cancela uma conta a pagar sem pagamentos. Funciona offline.
+  Future<SendResult> cancelPayable(String payableId, String reason) =>
+      _api.send('finance/payables/$payableId/cancel', {
+        'id': payableId,
+        'congregationId': _api.congregationId,
+        'reason': reason,
+      });
+
+  /// Ciclos fechados (para saber se um lançamento ainda pode ser alterado).
+  Future<List<({DateTime start, DateTime end})>> closedPeriods() async {
+    final data = await _api.get(
+      'finance/accountability-cycles',
+      query: {'congregationId': _api.congregationId},
+    );
+    return [
+      for (final cycle in asMapList(data))
+        if (cycle['status'] == 'CLOSED' &&
+            asDate(cycle['startDate']) != null &&
+            asDate(cycle['endDate']) != null)
+          (start: asDate(cycle['startDate'])!, end: asDate(cycle['endDate'])!),
+    ];
+  }
+
   /// Receitas e despesas lançadas offline que ainda não foram enviadas.
   Future<List<LedgerItem>> _pendingItems() async {
     final database = _api.database;

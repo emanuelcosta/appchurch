@@ -13,10 +13,41 @@ import 'widgets/funding_split_editor.dart';
 /// Lançamento de despesa no estilo da planilha: informa o valor e combina
 /// as fontes de dinheiro, vendo o saldo de cada uma e quanto falta.
 /// A API valida de novo (soma das fontes = valor; data em ciclo aberto).
+/// Despesa já lançada (paga ou conta a pagar), para editar.
+class ExpenseDraft {
+  const ExpenseDraft({
+    required this.id,
+    required this.paid,
+    required this.amount,
+    required this.description,
+    required this.date,
+    this.categoryId,
+    this.paymentMethod,
+    this.fundingSources = const {},
+    this.notificationDaysBefore,
+  });
+
+  /// Id da conta (`payables`).
+  final String id;
+
+  /// `true`: despesa paga (data = pagamento); `false`: conta a pagar.
+  final bool paid;
+  final double amount;
+  final String description;
+  final DateTime? date;
+  final String? categoryId;
+  final String? paymentMethod;
+  final Map<String, double> fundingSources;
+  final int? notificationDaysBefore;
+}
+
 class ExpenseFormPage extends StatefulWidget {
-  const ExpenseFormPage({super.key, required this.api});
+  const ExpenseFormPage({super.key, required this.api, this.editing});
 
   final ApiClient api;
+
+  /// Com valor, edita a despesa (mesmo id) em vez de lançar uma nova.
+  final ExpenseDraft? editing;
 
   @override
   State<ExpenseFormPage> createState() => _ExpenseFormPageState();
@@ -25,17 +56,34 @@ class ExpenseFormPage extends StatefulWidget {
 class _ExpenseFormPageState extends State<ExpenseFormPage> {
   late final ExpensesService _service = ExpensesService(widget.api);
   final _formKey = GlobalKey<FormState>();
-  final _amount = TextEditingController();
-  final _description = TextEditingController();
-  final _notifyDays = TextEditingController(text: '3');
-  final _sources = FundingSplitController();
+  late final _amount = TextEditingController(
+    text: widget.editing == null
+        ? null
+        : formatMoneyInput(widget.editing!.amount),
+  );
+  late final _description = TextEditingController(
+    text: widget.editing?.description,
+  );
+  late final _notifyDays = TextEditingController(
+    text: '${widget.editing?.notificationDaysBefore ?? 3}',
+  );
+  late final _sources = FundingSplitController()
+    ..fill(widget.editing?.fundingSources ?? const {});
   late final Future<List<ExpenseCategory>> _categories = _service.categories();
   Map<String, double>? _available;
-  String? _categoryId;
-  bool _paidNow = true;
-  DateTime? _paymentDate = DateTime.now();
-  DateTime? _dueDate;
-  String _paymentMethod = 'PIX';
+  late String? _categoryId = widget.editing?.categoryId;
+  late bool _paidNow = widget.editing?.paid ?? true;
+  late DateTime? _paymentDate = widget.editing == null
+      ? DateTime.now()
+      : widget.editing!.paid
+      ? widget.editing!.date
+      : DateTime.now();
+  late DateTime? _dueDate = widget.editing?.paid == false
+      ? widget.editing!.date
+      : null;
+  late String _paymentMethod = widget.editing?.paymentMethod ?? 'PIX';
+
+  bool get _isEditing => widget.editing != null;
   String? _attachmentName;
   bool _saving = false;
   AutovalidateMode _autovalidate = AutovalidateMode.disabled;
@@ -106,7 +154,7 @@ class _ExpenseFormPageState extends State<ExpenseFormPage> {
     setState(() => _saving = true);
     try {
       final result = await _service.create({
-        'id': const Uuid().v4(),
+        'id': widget.editing?.id ?? const Uuid().v4(),
         'description': _description.text.trim(),
         'categoryId': _categoryId,
         'amount': split.total,
@@ -123,7 +171,7 @@ class _ExpenseFormPageState extends State<ExpenseFormPage> {
       if (!mounted) return;
       _showMessage(
         result == SendResult.sent
-            ? 'Despesa lançada.'
+            ? (_isEditing ? 'Despesa atualizada.' : 'Despesa lançada.')
             : 'Sem conexão: despesa salva no aparelho e será enviada quando a conexão voltar.',
       );
       Navigator.of(context).pop(true);
@@ -139,7 +187,9 @@ class _ExpenseFormPageState extends State<ExpenseFormPage> {
     const gap = SizedBox(height: 12);
     final split = _split;
     return Scaffold(
-      appBar: AppBar(title: const Text('Lançar despesa')),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Editar despesa' : 'Lançar despesa'),
+      ),
       body: Form(
         key: _formKey,
         autovalidateMode: _autovalidate,
@@ -207,23 +257,25 @@ class _ExpenseFormPageState extends State<ExpenseFormPage> {
               },
             ),
             gap,
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(
-                  value: true,
-                  icon: Icon(Icons.payments_outlined),
-                  label: Text('Paga agora'),
-                ),
-                ButtonSegment(
-                  value: false,
-                  icon: Icon(Icons.event_note),
-                  label: Text('Conta a pagar'),
-                ),
-              ],
-              selected: {_paidNow},
-              onSelectionChanged: (value) =>
-                  setState(() => _paidNow = value.first),
-            ),
+            // Na edição o tipo não muda: trocar desfaria o pagamento já feito.
+            if (!_isEditing)
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: true,
+                    icon: Icon(Icons.payments_outlined),
+                    label: Text('Paga agora'),
+                  ),
+                  ButtonSegment(
+                    value: false,
+                    icon: Icon(Icons.event_note),
+                    label: Text('Conta a pagar'),
+                  ),
+                ],
+                selected: {_paidNow},
+                onSelectionChanged: (value) =>
+                    setState(() => _paidNow = value.first),
+              ),
             gap,
             if (_paidNow) ...[
               DateField(

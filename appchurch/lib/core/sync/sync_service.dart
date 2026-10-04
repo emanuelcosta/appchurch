@@ -28,6 +28,9 @@ class SyncService {
   /// Quantidade de gravações aguardando envio.
   final ValueNotifier<int> pending = ValueNotifier(0);
 
+  /// Quantidade de envios recusados pela API (precisam de atenção).
+  final ValueNotifier<int> rejected = ValueNotifier(0);
+
   void start() {
     _api.reachable.addListener(synchronize);
     try {
@@ -89,5 +92,27 @@ class SyncService {
     pending.value = operations
         .where((operation) => operation.entityType == apiRequestEntity)
         .length;
+    final refused = await _database.rejectedOperations(_api.congregationId);
+    rejected.value = refused
+        .where((operation) => operation.entityType == apiRequestEntity)
+        .length;
+  }
+
+  /// Envios recusados, para a tela de correção.
+  Future<List<SyncOperation>> rejectedOperations() async =>
+      (await _database.rejectedOperations(_api.congregationId))
+          .where((operation) => operation.entityType == apiRequestEntity)
+          .toList();
+
+  /// Recoloca um envio recusado na fila e tenta enviar de novo.
+  Future<void> retry(String operationId) async {
+    await _database.retryOperation(operationId);
+    await synchronize();
+  }
+
+  /// Descarta um envio recusado (o lançamento não será enviado).
+  Future<void> discard(String operationId) async {
+    await _database.discardOperation(operationId);
+    await _refreshPending();
   }
 }

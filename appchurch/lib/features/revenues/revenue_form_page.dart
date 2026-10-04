@@ -24,17 +24,42 @@ const revenueTitles = {
   'DIZIMOS': 'Lançar dízimo',
 };
 
+/// Receita já lançada, para abrir o formulário em modo de edição.
+class RevenueDraft {
+  const RevenueDraft({
+    required this.id,
+    required this.fundCode,
+    required this.date,
+    required this.description,
+    required this.pixAmount,
+    required this.cashAmount,
+    this.categoryId,
+  });
+
+  final String id;
+  final String fundCode;
+  final DateTime? date;
+  final String description;
+  final double pixAmount;
+  final double cashAmount;
+  final String? categoryId;
+}
+
 class RevenueFormPage extends StatefulWidget {
   const RevenueFormPage({
     super.key,
     required this.api,
     this.fund = 'OFERTAS_CULTO',
+    this.editing,
   });
 
   final ApiClient api;
 
   /// Fundo da receita (OFERTAS_CULTO, OFERTAS_ALCADAS ou DIZIMOS).
   final String fund;
+
+  /// Com valor, edita a receita (mesmo id) em vez de lançar uma nova.
+  final RevenueDraft? editing;
 
   @override
   State<RevenueFormPage> createState() => _RevenueFormPageState();
@@ -44,12 +69,23 @@ class _RevenueFormPageState extends State<RevenueFormPage> {
   late final RevenuesService _service = RevenuesService(widget.api);
   late final Future<List<RevenueCategory>> _categories = _service.categories();
   final _formKey = GlobalKey<FormState>();
-  final _description = TextEditingController();
-  final _pix = TextEditingController();
-  final _cash = TextEditingController();
+  late final _description = TextEditingController(
+    text: widget.editing?.description,
+  );
+  late final _pix = TextEditingController(
+    text: _initial(widget.editing?.pixAmount),
+  );
+  late final _cash = TextEditingController(
+    text: _initial(widget.editing?.cashAmount),
+  );
   final _descriptionFocus = FocusNode();
-  String? _categoryId;
-  DateTime? _date = DateTime.now();
+  late String? _categoryId = widget.editing?.categoryId;
+  late DateTime? _date = widget.editing?.date ?? DateTime.now();
+
+  static String? _initial(double? value) =>
+      value == null || value == 0 ? null : formatMoneyInput(value);
+
+  bool get _isEditing => widget.editing != null;
   bool _saving = false;
   int _savedCount = 0;
   AutovalidateMode _autovalidate = AutovalidateMode.disabled;
@@ -63,7 +99,7 @@ class _RevenueFormPageState extends State<RevenueFormPage> {
     super.dispose();
   }
 
-  String get _fund => widget.fund;
+  String get _fund => widget.editing?.fundCode ?? widget.fund;
 
   bool get _isOffer => _fund == 'OFERTAS_CULTO';
 
@@ -88,7 +124,7 @@ class _RevenueFormPageState extends State<RevenueFormPage> {
     setState(() => _saving = true);
     try {
       final result = await _service.create({
-        'id': const Uuid().v4(),
+        'id': widget.editing?.id ?? const Uuid().v4(),
         'fundCode': _fund,
         'categoryId': ?_categoryId,
         'date': toIsoDate(_date!),
@@ -99,7 +135,9 @@ class _RevenueFormPageState extends State<RevenueFormPage> {
       if (!mounted) return;
       _savedCount++;
       final message = result == SendResult.sent
-          ? 'Receita de ${formatMoney(_total)} lançada.'
+          ? (_isEditing
+                ? 'Receita atualizada.'
+                : 'Receita de ${formatMoney(_total)} lançada.')
           : 'Sem conexão: receita salva no aparelho e será enviada quando a conexão voltar.';
       ScaffoldMessenger.of(
         context,
@@ -130,7 +168,13 @@ class _RevenueFormPageState extends State<RevenueFormPage> {
   Widget build(BuildContext context) {
     const gap = SizedBox(height: 12);
     return Scaffold(
-      appBar: AppBar(title: Text(revenueTitles[_fund] ?? 'Lançar receita')),
+      appBar: AppBar(
+        title: Text(
+          _isEditing
+              ? 'Editar receita'
+              : revenueTitles[_fund] ?? 'Lançar receita',
+        ),
+      ),
       body: Form(
         key: _formKey,
         autovalidateMode: _autovalidate,
@@ -259,12 +303,14 @@ class _RevenueFormPageState extends State<RevenueFormPage> {
               icon: const Icon(Icons.save_outlined),
               label: Text(_saving ? 'Salvando...' : 'Salvar'),
             ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _saving ? null : () => _save(another: true),
-              icon: const Icon(Icons.playlist_add),
-              label: const Text('Salvar e lançar outra'),
-            ),
+            if (!_isEditing) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _saving ? null : () => _save(another: true),
+                icon: const Icon(Icons.playlist_add),
+                label: const Text('Salvar e lançar outra'),
+              ),
+            ],
             if (_savedCount > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 12),

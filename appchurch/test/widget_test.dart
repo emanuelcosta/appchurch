@@ -465,6 +465,16 @@ void main() {
     await tester.tap(find.byTooltip('Limpar movimento'));
     await tester.pumpAndSettle();
     expect(find.text('Microfone'), findsOneWidget);
+
+    // Busca sem resultado no ciclo oferece buscar em todos os ciclos.
+    expect(find.text('Buscar em todos os ciclos'), findsNothing);
+    await tester.enterText(find.byType(TextField).first, 'inexistente');
+    await tester.pumpAndSettle();
+    expect(find.text('Nenhum lançamento encontrado.'), findsOneWidget);
+    await tester.tap(find.text('Buscar em todos os ciclos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Buscar em todos os ciclos'), findsNothing);
+    expect(find.text('10/08/2026 a 04/10/2026'), findsOneWidget);
   });
 
   testWidgets('lançamentos: paga conta combinando fontes', (tester) async {

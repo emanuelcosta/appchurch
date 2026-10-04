@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/widgets/async_states.dart';
+import '../dashboard/dashboard_models.dart';
 import '../dashboard/widgets/cycle_selector.dart';
 import '../expenses/expense_form_page.dart';
 import '../revenues/revenue_form_page.dart';
@@ -71,6 +72,22 @@ class _LedgerPageState extends State<LedgerPage> {
     _period = picked;
     _tag = null;
     await _reload();
+  }
+
+  /// Busca do início do ciclo mais antigo até hoje, mantendo o texto buscado.
+  void _searchAllCycles(List<CycleInfo> cycles) {
+    final today = widget.today ?? DateTime.now();
+    final starts = cycles.map((cycle) => cycle.startDate).nonNulls;
+    final first = starts.fold<DateTime>(
+      today,
+      (earliest, date) => date.isBefore(earliest) ? date : earliest,
+    );
+    _period = DateTimeRange(
+      start: first,
+      end: DateTime(today.year, today.month, today.day),
+    );
+    _tag = null;
+    _reload();
   }
 
   void _clearPeriod() {
@@ -380,6 +397,19 @@ class _LedgerPageState extends State<LedgerPage> {
                   )
                 else
                   ..._groupedTiles(visible),
+                if (_search.trim().isNotEmpty &&
+                    _period == null &&
+                    data.cycles.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Center(
+                      child: TextButton.icon(
+                        onPressed: () => _searchAllCycles(data.cycles),
+                        icon: const Icon(Icons.history),
+                        label: const Text('Buscar em todos os ciclos'),
+                      ),
+                    ),
+                  ),
               ],
             ),
           );

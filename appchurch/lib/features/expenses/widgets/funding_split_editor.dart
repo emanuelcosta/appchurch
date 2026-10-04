@@ -26,6 +26,16 @@ class FundingSplitController {
     },
   );
 
+  /// Preenche os valores (edição de uma despesa já lançada).
+  void fill(Map<String, double> sources) {
+    for (final entry in sources.entries) {
+      final controller = controllers[entry.key];
+      if (controller != null && entry.value > 0) {
+        controller.text = formatMoneyInput(entry.value);
+      }
+    }
+  }
+
   void dispose() {
     for (final controller in controllers.values) {
       controller.dispose();

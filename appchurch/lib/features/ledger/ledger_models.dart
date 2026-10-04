@@ -18,6 +18,12 @@ class LedgerItem {
     this.funds = const {},
     this.remaining,
     this.pendingSync = false,
+    this.categoryId,
+    this.pixAmount = 0,
+    this.cashAmount = 0,
+    this.payableId,
+    this.paidOnCreation = false,
+    this.notificationDaysBefore,
   });
 
   factory LedgerItem.fromJson(Map<String, dynamic> json) => LedgerItem(
@@ -37,6 +43,14 @@ class LedgerItem {
       json['funds'],
     ).map((code, value) => MapEntry(code, asDouble(value))),
     remaining: json['remaining'] == null ? null : asDouble(json['remaining']),
+    categoryId: asString(json['categoryId']),
+    pixAmount: asDouble(json['pixAmount']),
+    cashAmount: asDouble(json['cashAmount']),
+    payableId: asString(json['payableId']),
+    paidOnCreation: asBool(json['paidOnCreation']),
+    notificationDaysBefore: json['notificationDaysBefore'] is num
+        ? (json['notificationDaysBefore'] as num).toInt()
+        : null,
   );
 
   final String id;
@@ -56,6 +70,22 @@ class LedgerItem {
 
   /// Lançado offline, ainda na fila de sincronização.
   final bool pendingSync;
+
+  /// Tipo da receita ou categoria da despesa/conta (para editar).
+  final String? categoryId;
+
+  /// Receita: valores recebidos em PIX e em dinheiro.
+  final double pixAmount;
+  final double cashAmount;
+
+  /// Despesa paga: conta de origem do pagamento.
+  final String? payableId;
+
+  /// Despesa lançada já paga (editável pelo formulário de despesa).
+  final bool paidOnCreation;
+
+  /// Conta a pagar: aviso antes do vencimento.
+  final int? notificationDaysBefore;
 
   bool get isIncome => kind == LedgerKind.revenue;
 
