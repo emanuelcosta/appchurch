@@ -245,56 +245,76 @@ Regras:
   `REVIEWER`, `SECRETARY`, `VIEWER`, `AUDITOR`.
 - `congregation_id` padrão do app: `f4f1212d-b728-4a42-8fee-fec6abab33f1`.
 
-## Estado atual (04/10/2026)
+## Estado atual (04/10/2026, fim do dia)
 
-- **Versão do app:** 1.1.0 (build 2), APK release instalado no celular do
-  tesoureiro (2303CRA44A, Android 15). Gerado com `scripts/build-apk.ps1`.
-- **API:** roda no PC do tesoureiro (`192.168.18.238:3000`); o celular só
-  sincroniza no mesmo Wi-Fi, com a API ligada (`scripts/start-api.ps1`). Fora
-  desse Wi-Fi o app funciona offline e envia a fila depois.
+- **Versão do app:** 1.2.0 (build 3), APK release instalado **por cima**
+  (`adb install -r`, mantém login e fila) no celular do tesoureiro
+  (2303CRA44A, Android 15). Gerar com `scripts/build-apk.ps1`.
+  Não use `flutter install` para atualizar: ele desinstala antes e apaga a
+  fila offline e o login.
+- **API:** ainda roda no PC do tesoureiro (`192.168.18.238:3000`,
+  `scripts/start-api.ps1`); o celular só sincroniza nesse Wi-Fi. Fora dele o
+  app funciona offline e envia a fila depois.
+- **Decisão: o backend (API NestJS) será hospedado na Vercel** — ver
+  "Próximo passo" abaixo.
 - **Dados:** ciclo aberto 14/09/2026 a 11/10/2026; 5 ciclos fechados
   conferidos com a planilha. Correções aplicadas (bazar duplicado, oferta
   com data 2029, ciclo atual reaberto, tipos de receita, categoria GERAIS)
   com backups em `backups/`.
-- **Migration 0009 aplicada (04/10/2026):** o banco recusa
-  incluir/alterar/excluir receitas, pagamentos e rateios com data em ciclo
-  fechado (erro `P0001`, repassado ao app pela API). Scripts de correção
-  excepcional precisam de `set local app.allow_closed_cycle_edit = 'on'`
-  na transação. Policy de membros usa `SECRETARY`.
-- **Testes:** app 22 testes, API 18 testes — todos passando; `flutter analyze`
-  sem avisos.
-- **Não testado de ponta a ponta:** gravação de receita com usuário logado
-  (`POST /finance/revenues` exige token real) — validar no primeiro uso.
-- Repositório git local (branch `main`), **ainda sem remoto**: ao criar o
-  repositório no GitHub, rode `git remote add origin <url>` e
-  `git push -u origin main`.
+- **Migration 0009** registrada como aplicada em 04/10/2026 (feito por outra
+  ferramenta; confirmar no Supabase): o banco recusa incluir/alterar/excluir
+  receitas, pagamentos e rateios com data em ciclo fechado (erro `P0001`).
+  Correção excepcional exige `set local app.allow_closed_cycle_edit = 'on'`.
+  Policy de membros usa `SECRETARY`.
+- **Feito no app:** tesouraria em tela única, lançamento de receitas
+  (culto/alçada/dízimo) e despesas com rateio, pagar conta, editar/estornar
+  com auditoria, envios recusados visíveis, offline completo (pré-carga,
+  fila refletida no extrato, aviso nos totais, desfazer antes de enviar),
+  ciclos e relatório, membros, aniversariantes, perfil, administração.
+- **Testes:** app 39, API 23 — todos passando; `flutter analyze` sem avisos.
+- **Não testado de ponta a ponta no celular:** lançamento de receita gravando
+  no banco com usuário logado e o fluxo offline real (modo avião).
+- Repositório git local (branch `main`), **sem remoto**. Ao criar no GitHub
+  (privado): `git remote add origin <url>` e `git push -u origin main`.
 
 ### Como retomar
-1. Ligar a API: `scripts/start-api.ps1` (confirme `GET /api/v1/health` = 200).
-2. Rodar `flutter analyze`, `flutter test` e `npx jest --runInBand` para
-   confirmar que nada quebrou.
-3. Seguir as pendências abaixo, na ordem.
+1. Ligar a API local (`scripts/start-api.ps1`) enquanto a Vercel não estiver
+   no ar; confirme `GET /api/v1/health` = 200.
+2. Rodar `flutter analyze`, `flutter test` e `npx jest --runInBand`.
+3. Seguir o próximo passo e as pendências abaixo, na ordem.
 
-## Pendências conhecidas (próximos passos, em ordem de prioridade)
+### Próximo passo: backend na Vercel
+1. **Autorização na API antes de publicar** (obrigatório): validar o token
+   do Supabase e o perfil (`memberships.role_code`) em todas as rotas;
+   lançar/estornar/fechar ciclo só `ADMIN`/`TREASURER`. Hoje só `/me` e as
+   rotas de receita/estorno exigem login; as demais aceitam qualquer pedido
+   e escrevem com a service role.
+2. Adaptar a API NestJS para rodar como função serverless na Vercel
+   (entrada exportando o app Nest/Express, `vercel.json`/config do projeto),
+   sem estado em memória (remover `FinanceService` e `/sync/push`, que são
+   em memória).
+3. Variáveis de ambiente na Vercel (`SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, Cloudinary, Firebase) — nunca no repositório.
+4. Apontar o app para a URL HTTPS da Vercel (`--dart-define=API_URL=...` no
+   `scripts/build-apk.ps1`) e remover os IPs locais de
+   `android/app/src/main/res/xml/network_security_config.xml`.
+5. O plugin/MCP da Vercel nesta máquina precisa ser autorizado (`/mcp`)
+   antes de usar as ferramentas de deploy pelo Claude Code.
 
-- **Mostrar lançamentos recusados na sincronização.** Hoje, se a API recusa
-  uma operação da fila (ex.: data em ciclo fechado), ela vira `REJECTED` em
-  `sync_operations` e some do extrato sem aviso. Exibir na faixa/extrato com
-  opção de corrigir ou descartar.
-- Publicar a API na nuvem com HTTPS (para sincronizar fora do Wi-Fi de casa)
-  e remover os IPs locais de `network_security_config.xml`.
-- Remover o código legado em memória (`FinanceService`, `/sync/push`,
-  rotas antigas de `payables`/`entries`/`cycles`) — o app não usa mais.
-- API em HTTPS e fora do computador local (hoje o celular precisa estar no
-  mesmo Wi-Fi; `network_security_config.xml` libera HTTP só para o IP local).
+## Pendências conhecidas (depois da Vercel, em ordem de prioridade)
+
+- **Exportar o relatório do ciclo** (PDF/imagem) para enviar à sede.
+- **Dar baixa nos repasses** (dirigente/sede): marcar pago com data e forma
+  (`accountability_closure_transfers`).
+- Validar no celular: lançar oferta real e ensaiar o fechamento de 11/10
+  pela prévia.
+- Revogar e trocar a chave do Firebase exposta na conversa.
 - Assinar o APK com chave própria de release (hoje usa a chave de debug).
 - Envio do comprovante da despesa (módulo `attachments`/Cloudinary existe na
   API, falta ligar no app).
-- **Autorização na API**: validar o token e o perfil em todas as rotas (hoje só
-  `/me` valida). Fechar ciclo deve exigir `ADMIN`/`TREASURER`.
 - Prazos de alerta de vencimento e campos obrigatórios são salvos **por
   aparelho** (`shared_preferences`); levar para uma tabela de configuração da
-  congregação, para valer para todos os usuários.
+  congregação.
 - ESLint da API está com a configuração de lint tipado quebrada
   (`parserOptions.project`).
 - `scripts/import-tesouraria.py`: não importar a aba BAZAR (duplica linhas de
