@@ -7,6 +7,7 @@ import '../../shared/widgets/pending_sync_note.dart';
 import '../dashboard/dashboard_models.dart';
 import '../dashboard/widgets/cycle_selector.dart';
 import '../expenses/expense_form_page.dart';
+import '../export/export_service.dart';
 import '../revenues/revenue_form_page.dart';
 import '../../shared/widgets/filter_chips.dart';
 import 'ledger_details_page.dart';
@@ -23,12 +24,16 @@ class LedgerPage extends StatefulWidget {
     super.key,
     required this.api,
     required this.onOpenReport,
+    this.exporter,
     this.initialFilter = LedgerFilter.all,
     this.today,
   });
 
   final ApiClient api;
   final VoidCallback onOpenReport;
+
+  /// Substitui o exportador (testes).
+  final ExportService? exporter;
   final LedgerFilter initialFilter;
   final DateTime? today;
 
@@ -47,6 +52,26 @@ class _LedgerPageState extends State<LedgerPage> {
   late LedgerFilter _filter = widget.initialFilter;
   String? _tag;
   String _search = '';
+
+  bool _exporting = false;
+
+  /// Exporta para Excel o que está na tela: o período escolhido ou o ciclo.
+  Future<void> _exportCurrent(LedgerData data) async {
+    setState(() => _exporting = true);
+    try {
+      await (widget.exporter ?? ExportService(widget.api)).exportStatement(
+        cycleId: _period == null ? (_cycleId ?? data.cycle?.id) : null,
+        period: _period,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
 
   Future<void> _reload() async {
     final future = _service.load(cycleId: _cycleId, period: _period);
@@ -338,6 +363,8 @@ class _LedgerPageState extends State<LedgerPage> {
                 _CycleTotals(
                   items: data.items,
                   onOpenReport: widget.onOpenReport,
+                  exporting: _exporting,
+                  onExport: () => _exportCurrent(data),
                 ),
                 PendingSyncNote(api: widget.api, compact: true),
                 const SizedBox(height: 8),
@@ -537,12 +564,20 @@ class _GroupHeader extends StatelessWidget {
   }
 }
 
-/// Totais do ciclo exibido e atalho para o relatório (prestação de contas).
+/// Totais do ciclo exibido, atalho para o relatório (prestação de contas) e
+/// exportação para Excel do que está na tela.
 class _CycleTotals extends StatelessWidget {
-  const _CycleTotals({required this.items, required this.onOpenReport});
+  const _CycleTotals({
+    required this.items,
+    required this.onOpenReport,
+    required this.onExport,
+    required this.exporting,
+  });
 
   final List<LedgerItem> items;
   final VoidCallback onOpenReport;
+  final VoidCallback onExport;
+  final bool exporting;
 
   @override
   Widget build(BuildContext context) {
@@ -579,6 +614,16 @@ class _CycleTotals extends StatelessWidget {
               'Saídas',
               sum(LedgerKind.expense),
               Theme.of(context).colorScheme.error,
+            ),
+            IconButton(
+              tooltip: 'Exportar para Excel',
+              onPressed: exporting ? null : onExport,
+              icon: exporting
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download),
             ),
             TextButton.icon(
               onPressed: onOpenReport,

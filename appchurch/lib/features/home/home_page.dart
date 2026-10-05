@@ -13,6 +13,7 @@ import '../members/birthdays_page.dart';
 import '../members/members_page.dart';
 import '../profile/profile_page.dart';
 import '../profile/profile_service.dart';
+import '../reports/reports_page.dart';
 import '../settings/categories_page.dart';
 import '../settings/due_alert_settings_page.dart';
 import '../settings/required_fields_page.dart';
@@ -129,6 +130,13 @@ class _HomePageState extends State<HomePage> {
         title: 'Secretaria',
         actions: [
           ModuleAction(
+            icon: Icons.assessment_outlined,
+            title: 'Relatórios',
+            subtitle:
+                'Exportar extrato (ciclo ou período) e membros para Excel.',
+            onTap: () => _open(ReportsPage(api: widget.api)),
+          ),
+          ModuleAction(
             icon: Icons.groups_outlined,
             title: 'Membros',
             subtitle: 'Consulte, filtre e cadastre membros da congregação.',
@@ -155,6 +163,13 @@ class _HomePageState extends State<HomePage> {
       3 => ModuleMenu(
         title: 'Administração',
         actions: [
+          ModuleAction(
+            icon: Icons.assessment_outlined,
+            title: 'Relatórios',
+            subtitle:
+                'Exportar extrato (ciclo ou período) e membros para Excel.',
+            onTap: () => _open(ReportsPage(api: widget.api)),
+          ),
           ModuleAction(
             icon: Icons.notifications_active_outlined,
             title: 'Alertas de vencimento',

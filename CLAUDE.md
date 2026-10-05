@@ -118,6 +118,15 @@ Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Stop-Proce
 - **Administração**: tipos de receita e categorias de despesa (cadastro no
   banco), alertas de vencimento (dias) e campos obrigatórios dos
   formulários (`core/settings/required_fields.dart`).
+- **Relatórios** (`features/reports`, no menu da Secretaria e da
+  Administração): exporta para Excel o **extrato** — por ciclo (resumo da
+  aba RELATORIO_MENSAL + abas Ofertas de culto, Dízimos, Ofertas alçadas,
+  Despesas, Contas a pagar) ou por **período escolhido** (resumo com
+  entradas/saídas por fundo) — e os **membros** (ficha completa; pede
+  confirmação por conter dados pessoais). A Tesouraria também tem o botão
+  "Exportar para Excel" do ciclo/período exibido. O arquivo é gerado no app
+  (`features/export`, pacote `excel`) e compartilhado com `share_plus`;
+  funciona offline com os dados salvos.
 - **Perfil**: usuário, congregação, perfil de acesso, sair.
 
 ### Formulários
@@ -282,10 +291,10 @@ Regras:
   com auditoria, envios recusados visíveis, offline completo (pré-carga,
   fila refletida no extrato, aviso nos totais, desfazer antes de enviar),
   ciclos e relatório, membros, aniversariantes, perfil, administração.
-- **Testes:** app 49, API 23 — todos passando; `flutter analyze` sem avisos.
+- **Testes:** app 56, API 23 — todos passando; `flutter analyze` sem avisos.
 - **Feito depois da 1.2.0 (ainda não instalado):** Início/relatório somam
   lançamentos offline (provisório), edição de membros, modo offline sem
-  espera.
+  espera, relatórios em Excel.
 - **Não testado de ponta a ponta no celular:** lançamento de receita gravando
   no banco com usuário logado e o fluxo offline real (modo avião).
 - Repositório git local (branch `main`), **sem remoto**. Ao criar no GitHub
