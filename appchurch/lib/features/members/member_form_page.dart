@@ -36,16 +36,21 @@ const educationLevels = [
   'Pós-graduação',
 ];
 
-/// Cadastro de membro com os campos da ficha (planilha membros.xlsx).
-/// Retorna `true` ao fechar quando o membro foi salvo ou enfileirado.
+/// Cadastro e edição de membro com os campos da ficha (planilha
+/// membros.xlsx). Retorna `true` ao fechar quando o membro foi salvo ou
+/// enfileirado.
 class MemberFormPage extends StatefulWidget {
   const MemberFormPage({
     super.key,
     required this.service,
     this.requiredFields = const {'fullName'},
+    this.editing,
   });
 
   final MembersService service;
+
+  /// Com valor, edita este membro (mesmo id) em vez de cadastrar um novo.
+  final Member? editing;
 
   /// Campos obrigatórios (configuráveis em Administração → Campos obrigatórios).
   final Set<String> requiredFields;
@@ -56,25 +61,31 @@ class MemberFormPage extends StatefulWidget {
 
 class _MemberFormPageState extends State<MemberFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _rg = TextEditingController();
-  final _cpf = TextEditingController();
-  final _mother = TextEditingController();
-  final _father = TextEditingController();
-  final _spouse = TextEditingController();
-  final _address = TextEditingController();
-  final _nationality = TextEditingController(text: 'Brasileira');
-  final _birthplace = TextEditingController();
-  final _children = TextEditingController();
-  final _phone = TextEditingController();
-  final _email = TextEditingController();
-  DateTime? _birthDate;
-  DateTime? _roleSince;
-  DateTime? _baptismDate;
-  String? _role;
-  String? _maritalStatus;
-  String? _education;
-  bool? _baptized;
+  Member? get _member => widget.editing;
+  bool get _isEditing => widget.editing != null;
+  late final _name = TextEditingController(text: _member?.fullName);
+  late final _rg = TextEditingController(text: _member?.rg);
+  late final _cpf = TextEditingController(text: _member?.cpf);
+  late final _mother = TextEditingController(text: _member?.motherName);
+  late final _father = TextEditingController(text: _member?.fatherName);
+  late final _spouse = TextEditingController(text: _member?.spouseName);
+  late final _address = TextEditingController(text: _member?.address);
+  late final _nationality = TextEditingController(
+    text: _isEditing ? _member!.nationality : 'Brasileira',
+  );
+  late final _birthplace = TextEditingController(text: _member?.birthplace);
+  late final _children = TextEditingController(
+    text: _member?.childrenCount?.toString(),
+  );
+  late final _phone = TextEditingController(text: _member?.phone);
+  late final _email = TextEditingController(text: _member?.email);
+  late DateTime? _birthDate = _member?.birthDate;
+  late DateTime? _roleSince = _member?.ministryRoleSince;
+  late DateTime? _baptismDate = _member?.holySpiritBaptismDate;
+  late String? _role = _member?.ministryRole;
+  late String? _maritalStatus = _member?.maritalStatus;
+  late String? _education = _member?.education;
+  late bool? _baptized = _member?.holySpiritBaptism;
   bool _saving = false;
 
   /// Depois da primeira tentativa de salvar, valida enquanto o usuário edita.
@@ -134,7 +145,7 @@ class _MemberFormPageState extends State<MemberFormPage> {
     try {
       final result = await widget.service.create(
         NewMember(
-          id: const Uuid().v4(),
+          id: _member?.id ?? const Uuid().v4(),
           fullName: _name.text.trim(),
           birthDate: _date(_birthDate),
           rg: _text(_rg),
@@ -161,8 +172,8 @@ class _MemberFormPageState extends State<MemberFormPage> {
         SnackBar(
           content: Text(
             result == SendResult.sent
-                ? 'Membro cadastrado.'
-                : 'Sem conexão: membro salvo no aparelho e será enviado quando a conexão voltar.',
+                ? (_isEditing ? 'Ficha atualizada.' : 'Membro cadastrado.')
+                : 'Sem conexão: salvo no aparelho e será enviado quando a conexão voltar.',
           ),
         ),
       );
@@ -207,6 +218,12 @@ class _MemberFormPageState extends State<MemberFormPage> {
     List<String> options,
     ValueChanged<String?> onChanged,
   ) {
+    // Valor vindo da planilha que não está na lista (ex.: "Casado") continua
+    // selecionável, para a edição não perder o dado.
+    final items = [
+      ...options,
+      if (value != null && !options.contains(value)) value,
+    ];
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
@@ -216,7 +233,7 @@ class _MemberFormPageState extends State<MemberFormPage> {
         border: const OutlineInputBorder(),
       ),
       items: [
-        for (final option in options)
+        for (final option in items)
           DropdownMenuItem(value: option, child: Text(option)),
       ],
       onChanged: onChanged,
@@ -227,7 +244,7 @@ class _MemberFormPageState extends State<MemberFormPage> {
   Widget build(BuildContext context) {
     final digits = [FilteringTextInputFormatter.digitsOnly];
     return Scaffold(
-      appBar: AppBar(title: const Text('Novo membro')),
+      appBar: AppBar(title: Text(_isEditing ? 'Editar membro' : 'Novo membro')),
       body: Form(
         key: _formKey,
         autovalidateMode: _autovalidate,

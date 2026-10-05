@@ -547,12 +547,14 @@ export class SupabaseDashboardService {
     return this.db.query('congregation_members', `select=${MEMBER_COLUMNS}&congregation_id=eq.${congregationId}&order=full_name.asc`);
   }
 
+  /**
+   * Cadastra ou edita um membro (mesmo `id` = edição; idempotente para a
+   * fila offline). Na edição, preserva a origem do cadastro (`import_key`).
+   */
   async createMember(dto: CreateMemberDto) {
     const id = dto.id ?? randomUUID();
     const text = (value?: string) => value?.trim() || null;
-    return this.db.mutateReturning('congregation_members?on_conflict=id', 'POST', {
-      id,
-      congregation_id: dto.congregationId,
+    const fields = {
       full_name: dto.fullName.trim(),
       birth_date: dto.birthDate ?? null,
       rg: text(dto.rg),
@@ -572,8 +574,23 @@ export class SupabaseDashboardService {
       children_count: dto.childrenCount ?? null,
       phone: text(dto.phone),
       email: text(dto.email),
+    };
+    const [existing] = await this.db.query(
+      'congregation_members',
+      `select=id&id=eq.${id}&congregation_id=eq.${dto.congregationId}&limit=1`,
+    );
+    if (existing) {
+      return this.db.mutateReturning(`congregation_members?id=eq.${id}`, 'PATCH', {
+        ...fields,
+        updated_at: new Date().toISOString(),
+      }, 'return=representation');
+    }
+    return this.db.mutateReturning('congregation_members', 'POST', {
+      id,
+      congregation_id: dto.congregationId,
+      ...fields,
       import_key: `app-${id}`,
-    }, 'resolution=merge-duplicates,return=representation');
+    }, 'return=representation');
   }
 
   /** Perfil do usuário autenticado: valida o token no Supabase Auth. */

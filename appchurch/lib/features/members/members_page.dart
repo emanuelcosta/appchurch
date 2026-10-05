@@ -44,16 +44,18 @@ class _MembersPageState extends State<MembersPage> {
     await future.then((_) {}, onError: (_) {});
   }
 
-  Future<void> _openForm() async {
-    final created = await Navigator.of(context).push<bool>(
+  /// Abre o formulário para cadastrar ou, com [member], editar a ficha.
+  Future<void> _openForm([Member? member]) async {
+    final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => MemberFormPage(
           service: _service,
           requiredFields: widget.requiredFields,
+          editing: member,
         ),
       ),
     );
-    if (created == true) await _reload();
+    if (saved == true) await _reload();
   }
 
   @override
@@ -61,7 +63,7 @@ class _MembersPageState extends State<MembersPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Membros')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openForm,
+        onPressed: () => _openForm(),
         icon: const Icon(Icons.person_add_alt_1),
         label: const Text('Novo membro'),
       ),
@@ -137,7 +139,8 @@ class _MembersPageState extends State<MembersPage> {
                     message: 'Nenhum membro encontrado.',
                   )
                 else
-                  for (final member in filtered) _MemberTile(member: member),
+                  for (final member in filtered)
+                    _MemberTile(member: member, onEdit: _openForm),
               ],
             ),
           );
@@ -148,9 +151,10 @@ class _MembersPageState extends State<MembersPage> {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.member});
+  const _MemberTile({required this.member, required this.onEdit});
 
   final Member member;
+  final ValueChanged<Member> onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +178,14 @@ class _MemberTile extends StatelessWidget {
         onTap: () => showModalBottomSheet<void>(
           context: context,
           showDragHandle: true,
-          builder: (_) => _MemberDetails(member: member),
+          isScrollControlled: true,
+          builder: (sheetContext) => _MemberDetails(
+            member: member,
+            onEdit: () {
+              Navigator.pop(sheetContext);
+              onEdit(member);
+            },
+          ),
         ),
       ),
     );
@@ -182,9 +193,10 @@ class _MemberTile extends StatelessWidget {
 }
 
 class _MemberDetails extends StatelessWidget {
-  const _MemberDetails({required this.member});
+  const _MemberDetails({required this.member, required this.onEdit});
 
   final Member member;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +236,26 @@ class _MemberDetails extends StatelessWidget {
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
-          Text(member.fullName, style: Theme.of(context).textTheme.titleLarge),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  member.fullName,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Editar'),
+              ),
+            ],
+          ),
+          if (member.pendingSync)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text('Aguardando sincronização.'),
+            ),
           const SizedBox(height: 8),
           for (final (icon, label, value) in rows)
             if (value != null)
