@@ -26,6 +26,12 @@ class _AuthGateState extends State<AuthGate> {
   );
 
   @override
+  void dispose() {
+    _api.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(
       stream: widget.supabase.auth.onAuthStateChange,

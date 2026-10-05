@@ -40,6 +40,17 @@ class FakeApiClient extends ApiClient {
     return _seen[path] = responses[path];
   }
 
+  /// Nos testes não há teste periódico: o estado muda via [connected].
+  @override
+  void scheduleProbe() {}
+
+  @override
+  Future<bool> checkConnection() async {
+    offline.value = !connected;
+    if (connected) reachable.value++;
+    return connected;
+  }
+
   @override
   Future<Object?> post(String path, {Object? data}) async {
     await Future<void>.delayed(Duration.zero);

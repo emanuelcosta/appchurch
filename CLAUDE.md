@@ -138,6 +138,12 @@ Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Stop-Proce
 2. **Offline-first no app.**
    - Consultas (`ApiClient.get`) guardam a última resposta (`ApiCache`) e,
      sem conexão, usam essa cópia; a faixa "Offline" avisa o usuário.
+   - **Modo offline sem espera:** na primeira falha de conexão (limite de
+     4 s para conectar) o `ApiClient` entra em modo offline: consultas
+     respondem na hora com a cópia do aparelho e gravações vão direto para
+     a fila. Um teste leve (`GET /health`) roda a cada 15 s e quando a rede
+     do celular muda; ao responder, volta ao modo online, sincroniza a fila
+     e a aba aberta recarrega sozinha.
    - Gravações (`ApiClient.send`) sem conexão vão para a fila local
      (`sync_operations`, Drift) e o `SyncService` reenvia na ordem quando a
      API volta. Todo cadastro leva **`id` gerado no app** e a API faz upsert
@@ -276,7 +282,10 @@ Regras:
   com auditoria, envios recusados visíveis, offline completo (pré-carga,
   fila refletida no extrato, aviso nos totais, desfazer antes de enviar),
   ciclos e relatório, membros, aniversariantes, perfil, administração.
-- **Testes:** app 39, API 23 — todos passando; `flutter analyze` sem avisos.
+- **Testes:** app 49, API 23 — todos passando; `flutter analyze` sem avisos.
+- **Feito depois da 1.2.0 (ainda não instalado):** Início/relatório somam
+  lançamentos offline (provisório), edição de membros, modo offline sem
+  espera.
 - **Não testado de ponta a ponta no celular:** lançamento de receita gravando
   no banco com usuário logado e o fluxo offline real (modo avião).
 - Repositório git local (branch `main`), **sem remoto**. Ao criar no GitHub

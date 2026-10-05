@@ -64,6 +64,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _sync.start();
     _prefetch.start();
+    widget.api.offline.addListener(_onConnectionChanged);
     _alertSettings.load();
     _requiredFields.load();
     _loadCongregationName();
@@ -84,11 +85,28 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _sync.dispose();
     _prefetch.dispose();
+    widget.api.offline.removeListener(_onConnectionChanged);
     super.dispose();
   }
 
   /// Recria o dashboard ao voltar do relatório (o ciclo pode ter sido fechado).
   Key _dashboardKey = UniqueKey();
+
+  /// Recria a aba aberta quando a API volta, para trocar a cópia do
+  /// aparelho pelos dados atualizados sem o usuário precisar puxar a tela.
+  Key _bodyKey = UniqueKey();
+  late bool _wasOffline = widget.api.offline.value;
+
+  void _onConnectionChanged() {
+    final offline = widget.api.offline.value;
+    if (_wasOffline && !offline && mounted) {
+      setState(() {
+        _bodyKey = UniqueKey();
+        _dashboardKey = UniqueKey();
+      });
+    }
+    _wasOffline = offline;
+  }
 
   Future<void> _open(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
@@ -209,7 +227,9 @@ class _HomePageState extends State<HomePage> {
                   _open(SyncIssuesPage(api: widget.api, sync: _sync)),
             ),
           ),
-          Expanded(child: _body()),
+          Expanded(
+            child: KeyedSubtree(key: _bodyKey, child: _body()),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(

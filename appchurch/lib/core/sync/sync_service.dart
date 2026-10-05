@@ -37,7 +37,11 @@ class SyncService {
       _connectivitySubscription = (_connectivity ?? Connectivity())
           .onConnectivityChanged
           .listen((results) {
-            if (!results.contains(ConnectivityResult.none)) synchronize();
+            // Rede voltou: testa a API agora; se responder, o aviso de
+            // "API de volta" dispara a sincronização.
+            if (!results.contains(ConnectivityResult.none)) {
+              _api.checkConnection();
+            }
           });
     } catch (_) {
       // Sem plugin de conectividade (ex.: testes): segue sincronizando
